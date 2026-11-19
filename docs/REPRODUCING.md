@@ -1,13 +1,56 @@
-# Reproducing the code-first software checks
+# Running the synthetic software checks
 
-Run the README installation commands from this edition's root. No files from the full research checkout should be copied in to make these checks pass. The dependency list covers the included library imports and tests; plotting, network acquisition and full-study reporting dependencies have been omitted because their scripts/results are not shipped.
+This guide covers the public software edition. The checks use invented observations, record identifiers, prediction values and label streams. They require no files from the private research checkout.
 
-The runner checks only `tests/test_synthetic_core.py` in this edition and blocks actual raw-PSV access under its own data root. Fixtures use invented arrays, generic record identifiers, fixed prediction values and artificial label streams. No model is trained and no reference/threshold is learned. The software can exercise a monitor-before-release lifecycle without claiming real monitoring performance.
+## Install and verify
 
-The full research suite is not included and its pass count must not be claimed for this edition. Artifact-dependent study commands, empirical figure reconstruction and private model loading are unsupported here. The underlying library modules remain unchanged, so pinned real-artifact loaders continue to require unavailable, checksum-verified inputs rather than being weakened for the release.
+From the repository root, run:
 
-This is a source-inspection/software-contract edition, not a promise that every historical API is supported independently. In particular, `evaluation.secondary_margin` retains its historical patient-interval convention; the completed study used the separately specified hour-weighted adapter in `benchmark_statistics`. Neither empirical materiality classification nor clinical thresholds are offered by this edition. Its loss checks exercise `estimate` and `compare`; no frozen helper has been silently corrected or promoted.
+```sh
+python3.14 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip check
+.venv/bin/python scripts/run_checks.py
+```
 
-The intended checks cover causal-prefix invariance, first-positive censoring, horizon boundaries, strict label-free payloads, duplicate rejection, empirical KS calculations, paired bootstrap arithmetic, artificial feedback ordering and frozen-state failure. Any displayed numbers are invented fixture values, not patient results.
+These are the same commands as the [README](../README.md#install-and-run-the-synthetic-tests). The pinned dependencies cover the included library imports and tests. Plotting, acquisition and full-study reporting scripts are not included.
 
-Version pins do not guarantee platform-independent wheel or binary identity. The tested host is CPython 3.14.6 on macOS ARM64; Windows uses a different venv executable path. A different platform needs its own installation/test verification. See the [scope notice](../NOTICE.md) and [dependency notices](../THIRD_PARTY_NOTICES.md).
+The tested environment is **CPython 3.14.6 on macOS ARM64**. Pins do not guarantee identical wheels or binaries across platforms. Windows uses a different virtual-environment executable path; other platforms need their own installation and test verification.
+
+## What the tests check
+
+[scripts/run_checks.py](../scripts/run_checks.py) runs the included [synthetic suite](../tests/test_synthetic_core.py), currently **21 cases** including parameterized cases. The runner blocks attempts through `Path.open` to read raw `.psv` files beneath this edition's `data/raw` directory. It is a targeted guard, not a general filesystem sandbox.
+
+| Area | Behavior checked |
+| --- | --- |
+| Features | Changing observations outside a selected prefix does not change its features; missing values and observed zeros have distinct coverage. |
+| Endpoints | First-positive censoring, prediction-horizon boundaries and post-onset exclusion follow the implemented rules. |
+| Monitoring inputs | Outcome-related extra fields and duplicate record identifiers are rejected. |
+| Distribution statistics | The empirical KS calculation matches the scaled SciPy statistic for the supplied arrays. |
+| Loss and uncertainty | Record and hour weighting differ; paired whole-record resampling retains a constant loss difference; independent comparisons reject overlapping keys. |
+| Delayed release | The monitor callback runs before outcome review at each supported artificial delay. |
+| Access and state | A changed frozen-state fingerprint and an unauthorized record role raise errors. |
+
+The tests use fixed prediction values. They do not train a model, learn detector references or select cutoffs. The pass count describes this public suite, not the larger private research suite.
+
+## Follow the README example
+
+The [walkthrough](../README.md#walkthrough-records-and-hours-give-different-averages) reproduces the inputs to `test_record_and_hour_weighting_are_distinct`. The expected outputs are **2 scored records**, **0.5 record-balanced loss** and **0.82 hour-weighted loss**. All values and identifiers are invented.
+
+To run just that existing test:
+
+```sh
+.venv/bin/python -m pytest -q tests/test_synthetic_core.py::test_record_and_hour_weighting_are_distinct
+```
+
+The delayed-release test, `test_monitor_runs_before_artificial_release`, separately checks callback order for **0, 3 and 6 artificial steps**. Its `seal()` call flushes pending labels before the final order assertion. This checks software ordering, not real clinical label latency or monitoring accuracy.
+
+## Compatibility and reproduction limits
+
+The source retains study-specific APIs, but the standalone checks cover only the synthetic paths described above. Loading the original protocol, cohort memberships, fitted models or detector references requires artifacts that are not supplied. Full benchmark execution and empirical figure reconstruction are unsupported in this edition.
+
+**Legacy loss-helper warning:** `evaluation.secondary_margin` uses `comparison.patient_interval`, which describes record-balanced loss. The completed study used a separately specified hour-weighted adapter in `benchmark_statistics`. The two are not interchangeable. The public loss tests exercise `estimate` and `compare`; they do not validate `secondary_margin` as an empirical harm classifier or provide clinically validated margins or thresholds.
+
+Replay steps are artificial ordering units, not timestamps. Label-free distribution statistics describe changes in monitored inputs or scores; outcome labels are needed to assess predictive deterioration. Passing synthetic checks does not reproduce the empirical study or establish clinical effectiveness or safety.
+
+See [NOTICE.md](../NOTICE.md) for software/data scope and attribution, and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) for dependency notices.
